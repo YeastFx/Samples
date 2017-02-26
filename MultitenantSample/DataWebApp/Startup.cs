@@ -1,15 +1,20 @@
-﻿using Microsoft.AspNetCore.Builder;
+﻿using DataWebApp.Data;
+using DataWebApp.Models;
+using DataWebApp.Multitenancy;
+using DataWebApp.Services;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using SimpleWebApp.Multitenancy;
 using StructureMap;
 using System;
 using Yeast.Multitenancy;
 
-namespace SimpleWebApp
+namespace DataWebApp
 {
     public class Startup
     {
@@ -18,8 +23,15 @@ namespace SimpleWebApp
             var builder = new ConfigurationBuilder()
                 .SetBasePath(env.ContentRootPath)
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true)
-                .AddEnvironmentVariables();
+                .AddJsonFile($"appsettings.{env.EnvironmentName}.json", optional: true);
+
+            if (env.IsDevelopment())
+            {
+                // For more details on using the user secret store see http://go.microsoft.com/fwlink/?LinkID=532709
+                builder.AddUserSecrets<Startup>();
+            }
+
+            builder.AddEnvironmentVariables();
             Configuration = builder.Build();
         }
 
@@ -28,14 +40,32 @@ namespace SimpleWebApp
         // This method gets called by the runtime. Use this method to add services to the container.
         public IServiceProvider ConfigureServices(IServiceCollection services)
         {
-            // Add multitenancy
-            services.AddMultitenancy<SimpleTenant, SimpleTenantResolver>();
+            // Add Multitenancy
+            services.AddMultitenancy<SampleTenant, SampleTenantResolver>();
 
             services.AddOptions();
-            services.Configure<SimpleMultitenancyOptions>(Configuration.GetSection("Multitenancy"));
+            services.Configure<SampleMultitenancyOptions>(Configuration.GetSection("Multitenancy"));
 
-            // Add framework services.
+            // Add Identity
+            services.AddTenantIdentity<ApplicationUser, IdentityRole>()
+                .AddEntityFrameworkStores<ApplicationDbContext>()
+                .AddDefaultTokenProviders();
+
+            services.ConfigureTenantServices<SampleTenant>(
+                (tenant, tenantServices) =>
+                {
+                    // Configure EF
+                    tenantServices.AddEntityFrameworkSqlServer();
+                    tenantServices.AddDbContext<ApplicationDbContext>(options =>
+                        options.UseSqlServer(tenant.ConnectionString)
+                    );
+                }
+            );
+
             services.AddMvc();
+
+            // Add application services.
+            services.AddTransient<IEmailSender, AuthMessageSender>();
 
             // Use StructureMap
             var container = new Container();
@@ -50,12 +80,13 @@ namespace SimpleWebApp
             loggerFactory.AddConsole(Configuration.GetSection("Logging"));
             loggerFactory.AddDebug();
 
-            // Enable tenant identification
-            app.UseMultitenancy<SimpleTenant>();
+            // Use Multitenancy
+            app.UseMultitenancy<SampleTenant>();
 
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+                app.UseDatabaseErrorPage();
                 app.UseBrowserLink();
             }
             else
@@ -63,9 +94,10 @@ namespace SimpleWebApp
                 app.UseExceptionHandler("/Home/Error");
             }
 
-            // Fork pipeline per tenant
-            app.ConfigureTenant<SimpleTenant>((tenantApp, tenantCtx) => {
-                tenantApp.UseStaticFiles();
+            app.UseStaticFiles();
+
+            app.ConfigureTenant<SampleTenant>((tenantApp, tenantCtx) => {
+                tenantApp.UseTenantIdentity(tenantCtx);
 
                 tenantApp.UseMvc(routes =>
                 {

@@ -1,4 +1,4 @@
-﻿@inject SimpleWebApp.Multitenancy.SimpleTenant Tenant
+﻿@inject DataWebApp.Multitenancy.SampleTenant Tenant
 @inject Microsoft.ApplicationInsights.AspNetCore.JavaScriptSnippet JavaScriptSnippet
 <!DOCTYPE html>
 <html>
@@ -34,9 +34,11 @@
             <div class="navbar-collapse collapse">
                 <ul class="nav navbar-nav">
                     <li><a asp-area="" asp-controller="Home" asp-action="Index">Home</a></li>
+                    <li><a asp-area="" asp-controller="Persons" asp-action="Index">Persons</a></li>
                     <li><a asp-area="" asp-controller="Home" asp-action="About">About</a></li>
                     <li><a asp-area="" asp-controller="Home" asp-action="Contact">Contact</a></li>
                 </ul>
+                @await Html.PartialAsync("_LoginPartial")
             </div>
         </div>
     </nav>
@@ -44,7 +46,7 @@
         @RenderBody()
         <hr />
         <footer>
-            <p>&copy; 2017 - SimpleWebApp</p>
+            <p>&copy; 2017 - DataWebApp</p>
         </footer>
     </div>
 

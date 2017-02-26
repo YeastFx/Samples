@@ -1,0 +1,10 @@
+﻿@model DataWebApp.Models.Person
+@{
+    var title = ViewData["Title"] = "Edit person";
+}
+
+<h2>@title</h2>
+
+<form asp-controller="Persons" asp-action="Edit" class="form-horizontal" method="post" role="form">
+    @Html.Partial("_Editor")
+</form>
